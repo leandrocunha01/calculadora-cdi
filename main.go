@@ -38,10 +38,10 @@ type Simulation struct {
 	TotalJuros     float64
 	SaldoFinal     float64
 
-	// campos exatos do formulário
 	CDIInput        string
 	PercentualInput string
 	FutureDateInput string
+	PrazoInput      string
 	InicialInput    string
 	AporteInput     string
 }
@@ -50,17 +50,11 @@ type Simulation struct {
    CÁLCULO
 ========================= */
 
-func calcularEvolucao(
-	inicial, aporte, taxaAnual float64,
-	meses int,
-	aporteNoInicio bool,
-) ([]Mes, float64, float64, float64) {
-
+func calcularEvolucao(inicial, aporte, taxaAnual float64, meses int, aporteNoInicio bool) ([]Mes, float64, float64, float64) {
 	taxaMensal := math.Pow(1+taxaAnual, 1.0/12.0) - 1
 	saldo := inicial
 	totalInvestido := inicial
 	totalJuros := 0.0
-
 	var evolucao []Mes
 
 	for m := 1; m <= meses; m++ {
@@ -94,12 +88,12 @@ func calcularEvolucao(
 ========================= */
 
 func parseFloat(v string) float64 {
+	v = strings.ReplaceAll(v, ".", "")
 	v = strings.ReplaceAll(v, ",", ".")
 	f, _ := strconv.ParseFloat(v, 64)
 	return f
 }
 
-// retorna alíquota IR de renda fixa (%) conforme prazo em meses
 func aliquotaIRPFRendaFixa(meses int) float64 {
 	switch {
 	case meses <= 6:
@@ -113,9 +107,26 @@ func aliquotaIRPFRendaFixa(meses int) float64 {
 	}
 }
 
-// calcula IRPF em reais sobre o valor do mês
 func calcularIR(valorJuros float64, meses int) float64 {
 	return valorJuros * aliquotaIRPFRendaFixa(meses) / 100
+}
+
+func formatBRL(v float64) string {
+	s := fmt.Sprintf("%.2f", v)
+	parts := strings.Split(s, ".")
+	intPart := parts[0]
+	decPart := parts[1]
+
+	n := len(intPart)
+	var sb strings.Builder
+	for i, c := range intPart {
+		if i > 0 && (n-i)%3 == 0 {
+			sb.WriteRune('.')
+		}
+		sb.WriteRune(c)
+	}
+
+	return "R$ " + sb.String() + "," + decPart
 }
 
 /* =========================
@@ -125,7 +136,6 @@ func calcularIR(valorJuros float64, meses int) float64 {
 func main() {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
-
 	var lastSimulation *Simulation
 	var layout *tview.Flex
 
@@ -137,13 +147,19 @@ func main() {
 	leftForm.AddInputField("CDI anual (%)", "", 10, nil, nil)
 	leftForm.AddInputField("Percentual do CDI (%)", "", 10, nil, nil)
 
-	// campo IRPF (%), apenas leitura
+	prazoField := tview.NewInputField().
+		SetLabel("Prazo (meses)").
+		SetText("").
+		SetFieldWidth(6)
+	leftForm.AddFormItem(prazoField)
+
 	irpfField := tview.NewInputField().
 		SetLabel("IRPF (%)").
 		SetText("0.0").
 		SetFieldWidth(6).
-		SetAcceptanceFunc(func(textToCheck string, lastChar rune) bool { return false })
-	leftForm.AddFormItem(irpfField)
+		SetAcceptanceFunc(func(text string, lastChar rune) bool {
+			return false
+		})
 
 	/* ---------- FORM DIREITO ---------- */
 	rightForm := tview.NewForm()
@@ -153,9 +169,7 @@ func main() {
 	rightForm.AddInputField("Aporte mensal (R$)", "", 12, nil, nil)
 
 	aporteNoInicio := true
-	rightForm.AddCheckbox("Aporte no início do mês", true, func(v bool) {
-		aporteNoInicio = v
-	})
+	rightForm.AddCheckbox("Aporte no início do mês", true, func(v bool) { aporteNoInicio = v })
 
 	/* ---------- RESULTADO ---------- */
 	result := tview.NewTextView()
@@ -165,24 +179,14 @@ func main() {
 	result.SetBorder(true)
 	result.SetTitle("+ Resultado F5 calcular | F9 carregar | F10 salvar | Esc sair +")
 
-	scrollRow := 0
-	scrollCol := 0
-	totalLines := 0
-	maxCols := 0
+	scrollRow, scrollCol := 0, 0
+	totalLines, maxCols := 0, 0
 
 	/* ---------- FUNÇÃO CALCULAR ---------- */
 	calculate := func() {
 		layoutDate := "02/01/2006"
 		now := time.Now()
 
-		// Ler data futura
-		future, err := time.Parse(layoutDate, leftForm.GetFormItem(0).(*tview.InputField).GetText())
-		if err != nil || !future.After(now) {
-			result.SetText("[red]Data inválida")
-			return
-		}
-
-		// Ler valores do formulário
 		cdi := parseFloat(leftForm.GetFormItem(1).(*tview.InputField).GetText()) / 100
 		perc := parseFloat(leftForm.GetFormItem(2).(*tview.InputField).GetText()) / 100
 		inicial := parseFloat(rightForm.GetFormItem(0).(*tview.InputField).GetText())
@@ -190,47 +194,59 @@ func main() {
 
 		taxaAnual := cdi * perc
 
-		// Calcular meses entre hoje e a data futura
-		meses := (future.Year()-now.Year())*12 + int(future.Month()-now.Month())
-		if future.Day() < now.Day() {
-			meses--
-		}
-		if meses < 0 {
-			meses = 0
+		// Lógica Data <-> Prazo
+		var meses int
+		prazo := parseFloat(prazoField.GetText())
+		futureText := leftForm.GetFormItem(0).(*tview.InputField).GetText()
+		future, err := time.Parse(layoutDate, futureText)
+
+		if err == nil && futureText != "" {
+			// Data preenchida -> calcula prazo
+			meses = (future.Year()-now.Year())*12 + int(future.Month()-now.Month())
+			if future.Day() < now.Day() {
+				meses--
+			}
+			if meses < 0 {
+				meses = 0
+			}
+			prazoField.SetText(fmt.Sprintf("%d", meses))
+		} else if prazo > 0 {
+			// Prazo preenchido -> calcula data
+			meses = int(prazo)
+			futureCalc := now.AddDate(0, meses, 0)
+			leftForm.GetFormItem(0).(*tview.InputField).SetText(futureCalc.Format(layoutDate))
+		} else {
+			result.SetText("[red]Preencha a data ou o prazo!")
+			return
 		}
 
-		// Calcular evolução
 		evolucao, totalInvestido, totalJurosBruto, saldoFinalBruto := calcularEvolucao(inicial, aporte, taxaAnual, meses, aporteNoInicio)
 
-		// Atualizar campo IRPF (%)
 		aliquota := aliquotaIRPFRendaFixa(meses)
 		irpfField.SetText(fmt.Sprintf("%.1f", aliquota))
 
 		lastSimulation = &Simulation{
-			DataExecucao:   time.Now(),
-			Inicial:        inicial,
-			Aporte:         aporte,
-			TaxaAnual:      taxaAnual,
-			Meses:          meses,
-			AporteNoInicio: aporteNoInicio,
-			Evolucao:       evolucao,
-			TotalInvestido: totalInvestido,
-			TotalJuros:     totalJurosBruto,
-			SaldoFinal:     saldoFinalBruto,
-
+			DataExecucao:    time.Now(),
+			Inicial:         inicial,
+			Aporte:          aporte,
+			TaxaAnual:       taxaAnual,
+			Meses:           meses,
+			AporteNoInicio:  aporteNoInicio,
+			Evolucao:        evolucao,
+			TotalInvestido:  totalInvestido,
+			TotalJuros:      totalJurosBruto,
+			SaldoFinal:      saldoFinalBruto,
 			CDIInput:        leftForm.GetFormItem(1).(*tview.InputField).GetText(),
 			PercentualInput: leftForm.GetFormItem(2).(*tview.InputField).GetText(),
 			FutureDateInput: leftForm.GetFormItem(0).(*tview.InputField).GetText(),
+			PrazoInput:      prazoField.GetText(),
 			InicialInput:    rightForm.GetFormItem(0).(*tview.InputField).GetText(),
 			AporteInput:     rightForm.GetFormItem(1).(*tview.InputField).GetText(),
 		}
 
-		// Montar tabela mês a mês com IR
+		// Monta resultado
 		var sb strings.Builder
-
-		// Calcular total de IRPF
-		totalIRPF := 0.0
-		totalJurosLiquido := 0.0
+		totalIRPF, totalJurosLiquido := 0.0, 0.0
 		for _, e := range evolucao {
 			irMes := calcularIR(e.Rendimento, meses)
 			totalIRPF += irMes
@@ -239,22 +255,19 @@ func main() {
 		resultadoLiquido := totalInvestido + totalJurosLiquido
 
 		sb.WriteString(fmt.Sprintf("Período          : %d meses\n", meses))
-		sb.WriteString(fmt.Sprintf("Total investido  : R$ %.2f\n", totalInvestido))
-		sb.WriteString(fmt.Sprintf("Total juros bruto: R$ %.2f\n", totalJurosBruto))
-		sb.WriteString(fmt.Sprintf("Total IRPF       : R$ %.2f\n", totalIRPF))
-		sb.WriteString(fmt.Sprintf("Resultado líquido: [green]R$ %.2f[-]\n", resultadoLiquido))
-		sb.WriteString(fmt.Sprintf("Valor final bruto: [green]R$ %.2f[-]\n\n", saldoFinalBruto))
+		sb.WriteString(fmt.Sprintf("Total investido  : %s\n", formatBRL(totalInvestido)))
+		sb.WriteString(fmt.Sprintf("Total juros bruto: %s\n", formatBRL(totalJurosBruto)))
+		sb.WriteString(fmt.Sprintf("Total IRPF       : %s\n", formatBRL(totalIRPF)))
+		sb.WriteString(fmt.Sprintf("Resultado líquido: [green]%s[-]\n", formatBRL(resultadoLiquido)))
+		sb.WriteString(fmt.Sprintf("Valor final bruto: [green]%s[-]\n\n", formatBRL(saldoFinalBruto)))
 
 		sb.WriteString("Mes | Saldo Inicial | Aporte | Juros Mes | IR Mes | Juros Liquido | Saldo Final\n")
 		sb.WriteString("----|---------------|--------|-----------|--------|---------------|------------\n")
 
 		saldoAcumulado := inicial
-
 		for _, e := range evolucao {
 			irMes := calcularIR(e.Rendimento, meses)
 			jurosLiquido := e.Rendimento - irMes
-
-			// Saldo final líquido do mês
 			saldoFinal := saldoAcumulado
 			if aporteNoInicio {
 				saldoFinal += e.Aporte
@@ -265,28 +278,23 @@ func main() {
 			}
 
 			sb.WriteString(fmt.Sprintf(
-				"%3d | %13.2f | %6.2f | %9.2f | %7.2f | %13.2f | %12.2f\n",
+				"%3d | %13s | %6s | %9s | %7s | %13s | %12s\n",
 				e.Mes,
-				e.SaldoInicial,
-				e.Aporte,
-				e.Rendimento,
-				irMes,
-				jurosLiquido,
-				saldoFinal,
+				formatBRL(e.SaldoInicial),
+				formatBRL(e.Aporte),
+				formatBRL(e.Rendimento),
+				formatBRL(irMes),
+				formatBRL(jurosLiquido),
+				formatBRL(saldoFinal),
 			))
-
 			saldoAcumulado = saldoFinal
 		}
 
 		text := sb.String()
 		result.SetText(text)
 		result.ScrollToBeginning()
-
-		// Reset scroll
-		scrollRow = 0
-		scrollCol = 0
-		totalLines = strings.Count(text, "\n")
-		maxCols = 0
+		scrollRow, scrollCol = 0, 0
+		totalLines, maxCols = strings.Count(text, "\n"), 0
 		for _, line := range strings.Split(text, "\n") {
 			if len(line) > maxCols {
 				maxCols = len(line)
@@ -294,14 +302,12 @@ func main() {
 		}
 	}
 
-	/* ---------- FUNÇÃO SALVAR (F10) ---------- */
+	/* ---------- FUNÇÕES SALVAR/CARREGAR ---------- */
 	saveSimulation := func() {
 		if lastSimulation == nil {
 			return
 		}
-
 		input := tview.NewInputField().SetLabel("Nome da simulação: ")
-
 		form := tview.NewForm().
 			AddFormItem(input).
 			AddButton("Salvar", func() {
@@ -318,45 +324,35 @@ func main() {
 				pages.RemovePage("save")
 				app.SetFocus(layout)
 			})
-
 		form.SetBorder(true).SetTitle("Salvar simulação")
 		modal := tview.NewFlex().
 			AddItem(nil, 0, 1, false).
 			AddItem(form, 50, 1, true).
 			AddItem(nil, 0, 1, false)
-
 		pages.AddPage("save", modal, true, true)
 		app.SetFocus(form)
 	}
 
-	/* ---------- FUNÇÃO CARREGAR (F9) ---------- */
 	loadSimulation := func() {
 		files, err := os.ReadDir(".")
 		if err != nil {
 			result.SetText("[red]Erro ao ler diretório: " + err.Error())
 			return
 		}
-
 		var options []string
 		for _, f := range files {
 			if !f.IsDir() && strings.HasSuffix(f.Name(), "_simulation.json") {
 				options = append(options, f.Name())
 			}
 		}
-
 		if len(options) == 0 {
 			result.SetText("[yellow]Nenhuma simulação encontrada!")
 			return
 		}
-
 		selectedFile := options[0]
-
 		dropdown := tview.NewDropDown().
 			SetLabel("Selecione a simulação: ").
-			SetOptions(options, func(text string, index int) {
-				selectedFile = text
-			})
-
+			SetOptions(options, func(text string, index int) { selectedFile = text })
 		form := tview.NewForm().
 			AddFormItem(dropdown).
 			AddButton("Carregar", func() {
@@ -367,7 +363,6 @@ func main() {
 					app.SetFocus(layout)
 					return
 				}
-
 				var sim Simulation
 				if err := json.Unmarshal(data, &sim); err != nil {
 					result.SetText("[red]Erro ao decodificar JSON: " + err.Error())
@@ -375,18 +370,15 @@ func main() {
 					app.SetFocus(layout)
 					return
 				}
-
 				lastSimulation = &sim
-
-				// Preencher campos do formulário exatamente como estavam
 				leftForm.GetFormItem(0).(*tview.InputField).SetText(sim.FutureDateInput)
 				leftForm.GetFormItem(1).(*tview.InputField).SetText(sim.CDIInput)
 				leftForm.GetFormItem(2).(*tview.InputField).SetText(sim.PercentualInput)
+				prazoField.SetText(sim.PrazoInput)
 				rightForm.GetFormItem(0).(*tview.InputField).SetText(sim.InicialInput)
 				rightForm.GetFormItem(1).(*tview.InputField).SetText(sim.AporteInput)
 				rightForm.GetFormItem(2).(*tview.Checkbox).SetChecked(sim.AporteNoInicio)
 				aporteNoInicio = sim.AporteNoInicio
-
 				pages.RemovePage("load")
 				app.SetFocus(layout)
 			}).
@@ -394,13 +386,11 @@ func main() {
 				pages.RemovePage("load")
 				app.SetFocus(layout)
 			})
-
 		form.SetBorder(true).SetTitle("Carregar simulação")
 		modal := tview.NewFlex().
 			AddItem(nil, 0, 1, false).
 			AddItem(form, 50, 1, true).
 			AddItem(nil, 0, 1, false)
-
 		pages.AddPage("load", modal, true, true)
 		app.SetFocus(dropdown)
 	}
@@ -410,15 +400,13 @@ func main() {
 		SetDirection(tview.FlexColumn).
 		AddItem(leftForm, 0, 1, true).
 		AddItem(rightForm, 0, 1, false)
-
 	layout = tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(forms, 0, 1, true).
 		AddItem(result, 0, 2, false)
-
 	pages.AddPage("main", layout, true, true)
 
-	/* ---------- ATALHOS GLOBAIS ---------- */
+	/* ---------- ATALHOS ---------- */
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyF2:
@@ -440,7 +428,6 @@ func main() {
 			app.Stop()
 			return nil
 
-		// scroll vertical
 		case tcell.KeyUp:
 			if scrollRow > 0 {
 				scrollRow--
@@ -477,8 +464,6 @@ func main() {
 			scrollCol = maxCols
 			result.ScrollToEnd()
 			return nil
-
-		// scroll horizontal
 		case tcell.KeyLeft:
 			if scrollCol > 0 {
 				scrollCol--
@@ -492,7 +477,6 @@ func main() {
 			}
 			return nil
 		}
-
 		return event
 	})
 
