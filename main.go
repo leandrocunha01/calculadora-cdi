@@ -37,6 +37,13 @@ type Simulation struct {
 	TotalInvestido float64
 	TotalJuros     float64
 	SaldoFinal     float64
+
+	// campos exatos do formulário
+	CDIInput        string
+	PercentualInput string
+	FutureDateInput string
+	InicialInput    string
+	AporteInput     string
 }
 
 /* =========================
@@ -106,10 +113,9 @@ func main() {
 	pages := tview.NewPages()
 
 	var lastSimulation *Simulation
-	var layout *tview.Flex // <--- adicione esta linha
+	var layout *tview.Flex
 
 	/* ---------- FORM ESQUERDO ---------- */
-
 	leftForm := tview.NewForm()
 	leftForm.SetBorder(true)
 	leftForm.SetTitle("+ Parâmetros F2 +")
@@ -118,7 +124,6 @@ func main() {
 	leftForm.AddInputField("Percentual do CDI (%)", "", 10, nil, nil)
 
 	/* ---------- FORM DIREITO ---------- */
-
 	rightForm := tview.NewForm()
 	rightForm.SetBorder(true)
 	rightForm.SetTitle("+ Valores F3 +")
@@ -131,7 +136,6 @@ func main() {
 	})
 
 	/* ---------- RESULTADO ---------- */
-
 	result := tview.NewTextView()
 	result.SetDynamicColors(true)
 	result.SetScrollable(true)
@@ -145,12 +149,11 @@ func main() {
 	maxCols := 0
 
 	/* ---------- FUNÇÃO CALCULAR ---------- */
-
 	calculate := func() {
-		layout := "02/01/2006"
+		layoutDate := "02/01/2006"
 		now := time.Now()
 
-		future, err := time.Parse(layout, leftForm.GetFormItem(0).(*tview.InputField).GetText())
+		future, err := time.Parse(layoutDate, leftForm.GetFormItem(0).(*tview.InputField).GetText())
 		if err != nil || !future.After(now) {
 			result.SetText("[red]Data inválida")
 			return
@@ -190,6 +193,13 @@ func main() {
 			TotalInvestido: investido,
 			TotalJuros:     juros,
 			SaldoFinal:     final,
+
+			// valores exatos do formulário
+			CDIInput:        leftForm.GetFormItem(1).(*tview.InputField).GetText(),
+			PercentualInput: leftForm.GetFormItem(2).(*tview.InputField).GetText(),
+			FutureDateInput: leftForm.GetFormItem(0).(*tview.InputField).GetText(),
+			InicialInput:    rightForm.GetFormItem(0).(*tview.InputField).GetText(),
+			AporteInput:     rightForm.GetFormItem(1).(*tview.InputField).GetText(),
 		}
 
 		var sb strings.Builder
@@ -235,8 +245,7 @@ func main() {
 			return
 		}
 
-		input := tview.NewInputField().
-			SetLabel("Nome da simulação: ")
+		input := tview.NewInputField().SetLabel("Nome da simulação: ")
 
 		form := tview.NewForm().
 			AddFormItem(input).
@@ -314,14 +323,12 @@ func main() {
 
 				lastSimulation = &sim
 
-				layoutDate := "02/01/2006"
-				future := time.Now().AddDate(0, sim.Meses, 0) // placeholder
-				leftForm.GetFormItem(0).(*tview.InputField).SetText(future.Format(layoutDate))
-				leftForm.GetFormItem(1).(*tview.InputField).SetText(fmt.Sprintf("%.2f", sim.TaxaAnual*100))
-				leftForm.GetFormItem(2).(*tview.InputField).SetText("100") // percentual aproximado
-
-				rightForm.GetFormItem(0).(*tview.InputField).SetText(fmt.Sprintf("%.2f", sim.Inicial))
-				rightForm.GetFormItem(1).(*tview.InputField).SetText(fmt.Sprintf("%.2f", sim.Aporte))
+				// Preencher os campos do formulário exatamente como estavam
+				leftForm.GetFormItem(0).(*tview.InputField).SetText(sim.FutureDateInput)
+				leftForm.GetFormItem(1).(*tview.InputField).SetText(sim.CDIInput)
+				leftForm.GetFormItem(2).(*tview.InputField).SetText(sim.PercentualInput)
+				rightForm.GetFormItem(0).(*tview.InputField).SetText(sim.InicialInput)
+				rightForm.GetFormItem(1).(*tview.InputField).SetText(sim.AporteInput)
 				rightForm.GetFormItem(2).(*tview.Checkbox).SetChecked(sim.AporteNoInicio)
 				aporteNoInicio = sim.AporteNoInicio
 
