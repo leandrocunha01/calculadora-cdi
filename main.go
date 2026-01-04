@@ -57,7 +57,6 @@ func calcularEvolucao(
 ) ([]Mes, float64, float64, float64) {
 
 	taxaMensal := math.Pow(1+taxaAnual, 1.0/12.0) - 1
-
 	saldo := inicial
 	totalInvestido := inicial
 	totalJuros := 0.0
@@ -66,21 +65,17 @@ func calcularEvolucao(
 
 	for m := 1; m <= meses; m++ {
 		saldoInicial := saldo
-
 		if aporteNoInicio {
 			saldo += aporte
 			totalInvestido += aporte
 		}
-
 		rendimento := saldo * taxaMensal
 		totalJuros += rendimento
 		saldo += rendimento
-
 		if !aporteNoInicio {
 			saldo += aporte
 			totalInvestido += aporte
 		}
-
 		evolucao = append(evolucao, Mes{
 			Mes:             m,
 			SaldoInicial:    saldoInicial,
@@ -104,6 +99,25 @@ func parseFloat(v string) float64 {
 	return f
 }
 
+// retorna alíquota IR de renda fixa (%) conforme prazo em meses
+func aliquotaIRPFRendaFixa(meses int) float64 {
+	switch {
+	case meses <= 6:
+		return 22.5
+	case meses <= 12:
+		return 20
+	case meses <= 24:
+		return 17.5
+	default:
+		return 15
+	}
+}
+
+// calcula IRPF em reais sobre o valor do mês
+func calcularIR(valorJuros float64, meses int) float64 {
+	return valorJuros * aliquotaIRPFRendaFixa(meses) / 100
+}
+
 /* =========================
    MAIN
 ========================= */
@@ -122,6 +136,14 @@ func main() {
 	leftForm.AddInputField("Data futura (DD/MM/AAAA)", "", 20, nil, nil)
 	leftForm.AddInputField("CDI anual (%)", "", 10, nil, nil)
 	leftForm.AddInputField("Percentual do CDI (%)", "", 10, nil, nil)
+
+	// campo IRPF (%), apenas leitura
+	irpfField := tview.NewInputField().
+		SetLabel("IRPF (%)").
+		SetText("0.0").
+		SetFieldWidth(6).
+		SetAcceptanceFunc(func(textToCheck string, lastChar rune) bool { return false })
+	leftForm.AddFormItem(irpfField)
 
 	/* ---------- FORM DIREITO ---------- */
 	rightForm := tview.NewForm()
@@ -153,12 +175,14 @@ func main() {
 		layoutDate := "02/01/2006"
 		now := time.Now()
 
+		// Ler data futura
 		future, err := time.Parse(layoutDate, leftForm.GetFormItem(0).(*tview.InputField).GetText())
 		if err != nil || !future.After(now) {
 			result.SetText("[red]Data inválida")
 			return
 		}
 
+		// Ler valores do formulário
 		cdi := parseFloat(leftForm.GetFormItem(1).(*tview.InputField).GetText()) / 100
 		perc := parseFloat(leftForm.GetFormItem(2).(*tview.InputField).GetText()) / 100
 		inicial := parseFloat(rightForm.GetFormItem(0).(*tview.InputField).GetText())
@@ -166,6 +190,7 @@ func main() {
 
 		taxaAnual := cdi * perc
 
+		// Calcular meses entre hoje e a data futura
 		meses := (future.Year()-now.Year())*12 + int(future.Month()-now.Month())
 		if future.Day() < now.Day() {
 			meses--
@@ -174,13 +199,12 @@ func main() {
 			meses = 0
 		}
 
-		evolucao, investido, juros, final := calcularEvolucao(
-			inicial,
-			aporte,
-			taxaAnual,
-			meses,
-			aporteNoInicio,
-		)
+		// Calcular evolução
+		evolucao, totalInvestido, totalJurosBruto, saldoFinalBruto := calcularEvolucao(inicial, aporte, taxaAnual, meses, aporteNoInicio)
+
+		// Atualizar campo IRPF (%)
+		aliquota := aliquotaIRPFRendaFixa(meses)
+		irpfField.SetText(fmt.Sprintf("%.1f", aliquota))
 
 		lastSimulation = &Simulation{
 			DataExecucao:   time.Now(),
@@ -190,11 +214,10 @@ func main() {
 			Meses:          meses,
 			AporteNoInicio: aporteNoInicio,
 			Evolucao:       evolucao,
-			TotalInvestido: investido,
-			TotalJuros:     juros,
-			SaldoFinal:     final,
+			TotalInvestido: totalInvestido,
+			TotalJuros:     totalJurosBruto,
+			SaldoFinal:     saldoFinalBruto,
 
-			// valores exatos do formulário
 			CDIInput:        leftForm.GetFormItem(1).(*tview.InputField).GetText(),
 			PercentualInput: leftForm.GetFormItem(2).(*tview.InputField).GetText(),
 			FutureDateInput: leftForm.GetFormItem(0).(*tview.InputField).GetText(),
@@ -202,32 +225,64 @@ func main() {
 			AporteInput:     rightForm.GetFormItem(1).(*tview.InputField).GetText(),
 		}
 
+		// Montar tabela mês a mês com IR
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("Período         : %d meses\n", meses))
-		sb.WriteString(fmt.Sprintf("Total investido : R$ %.2f\n", investido))
-		sb.WriteString(fmt.Sprintf("Total juros     : R$ %.2f\n", juros))
-		sb.WriteString(fmt.Sprintf("Resultado       : R$ %.2f\n", final-investido))
-		sb.WriteString(fmt.Sprintf("Valor final     : [green]R$ %.2f[-]\n\n", final))
 
-		sb.WriteString("Mes | Saldo Inicial | Aporte | Juros Mes | Juros Acum. | Saldo Final\n")
-		sb.WriteString("----|---------------|--------|-----------|-------------|------------\n")
+		// Calcular total de IRPF
+		totalIRPF := 0.0
+		totalJurosLiquido := 0.0
+		for _, e := range evolucao {
+			irMes := calcularIR(e.Rendimento, meses)
+			totalIRPF += irMes
+			totalJurosLiquido += e.Rendimento - irMes
+		}
+		resultadoLiquido := totalInvestido + totalJurosLiquido
+
+		sb.WriteString(fmt.Sprintf("Período          : %d meses\n", meses))
+		sb.WriteString(fmt.Sprintf("Total investido  : R$ %.2f\n", totalInvestido))
+		sb.WriteString(fmt.Sprintf("Total juros bruto: R$ %.2f\n", totalJurosBruto))
+		sb.WriteString(fmt.Sprintf("Total IRPF       : R$ %.2f\n", totalIRPF))
+		sb.WriteString(fmt.Sprintf("Resultado líquido: [green]R$ %.2f[-]\n", resultadoLiquido))
+		sb.WriteString(fmt.Sprintf("Valor final bruto: [green]R$ %.2f[-]\n\n", saldoFinalBruto))
+
+		sb.WriteString("Mes | Saldo Inicial | Aporte | Juros Mes | IR Mes | Juros Liquido | Saldo Final\n")
+		sb.WriteString("----|---------------|--------|-----------|--------|---------------|------------\n")
+
+		saldoAcumulado := inicial
 
 		for _, e := range evolucao {
+			irMes := calcularIR(e.Rendimento, meses)
+			jurosLiquido := e.Rendimento - irMes
+
+			// Saldo final líquido do mês
+			saldoFinal := saldoAcumulado
+			if aporteNoInicio {
+				saldoFinal += e.Aporte
+			}
+			saldoFinal += jurosLiquido
+			if !aporteNoInicio {
+				saldoFinal += e.Aporte
+			}
+
 			sb.WriteString(fmt.Sprintf(
-				"%3d | %13.2f | %6.2f | %9.2f | %11.2f | %10.2f\n",
+				"%3d | %13.2f | %6.2f | %9.2f | %7.2f | %13.2f | %12.2f\n",
 				e.Mes,
 				e.SaldoInicial,
 				e.Aporte,
 				e.Rendimento,
-				e.JurosAcumulados,
-				e.SaldoFinal,
+				irMes,
+				jurosLiquido,
+				saldoFinal,
 			))
+
+			saldoAcumulado = saldoFinal
 		}
 
 		text := sb.String()
 		result.SetText(text)
 		result.ScrollToBeginning()
 
+		// Reset scroll
 		scrollRow = 0
 		scrollCol = 0
 		totalLines = strings.Count(text, "\n")
@@ -323,7 +378,7 @@ func main() {
 
 				lastSimulation = &sim
 
-				// Preencher os campos do formulário exatamente como estavam
+				// Preencher campos do formulário exatamente como estavam
 				leftForm.GetFormItem(0).(*tview.InputField).SetText(sim.FutureDateInput)
 				leftForm.GetFormItem(1).(*tview.InputField).SetText(sim.CDIInput)
 				leftForm.GetFormItem(2).(*tview.InputField).SetText(sim.PercentualInput)
