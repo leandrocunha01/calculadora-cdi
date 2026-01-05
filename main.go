@@ -191,7 +191,7 @@ func main() {
 	/* ---------- FORM ESQUERDO ---------- */
 	leftForm := tview.NewForm()
 	leftForm.SetBorder(true)
-	leftForm.SetTitle("+ Deixe Data futura/Prazo para cálculo automático F2 +")
+	leftForm.SetTitle("+ [blue]F2[-] Deixe [yellow]Data futura/Prazo[-] em branco para cálculo automático +")
 
 	futureField := tview.NewInputField().
 		SetLabel("Data futura (DD/MM/AAAA)").
@@ -216,7 +216,7 @@ func main() {
 	/* ---------- FORM DIREITO ---------- */
 	rightForm := tview.NewForm()
 	rightForm.SetBorder(true)
-	rightForm.SetTitle("+ Valores F3 +")
+	rightForm.SetTitle("+ [blue]F3[-] Valores +")
 
 	inicialField := tview.NewInputField().
 		SetLabel("Valor inicial (R$)").
@@ -248,7 +248,7 @@ func main() {
 	result.SetScrollable(true)
 	result.SetWrap(false)
 	result.SetBorder(true)
-	result.SetTitle("+ Resultado F5 calcular | F7 matricial | F9 carregar | F10 salvar | Esc sair +")
+	result.SetTitle("+ F2 e F3 navegar entre formulários | F5 calcular | F7 matricial | F9 carregar | F10 salvar | Esc sair +")
 
 	scrollRow, scrollCol := 0, 0
 	totalLines, maxCols := 0, 0
