@@ -254,15 +254,15 @@ func main() {
 		}
 		resultadoLiquido := totalInvestido + totalJurosLiquido
 
-		sb.WriteString(fmt.Sprintf("Período          : %d meses\n", meses))
-		sb.WriteString(fmt.Sprintf("Total investido  : %s\n", formatBRL(totalInvestido)))
-		sb.WriteString(fmt.Sprintf("Total juros bruto: %s\n", formatBRL(totalJurosBruto)))
-		sb.WriteString(fmt.Sprintf("Total IRPF       : %s\n", formatBRL(totalIRPF)))
-		sb.WriteString(fmt.Sprintf("Resultado líquido: [green]%s[-]\n", formatBRL(resultadoLiquido)))
-		sb.WriteString(fmt.Sprintf("Valor final bruto: [green]%s[-]\n\n", formatBRL(saldoFinalBruto)))
+		sb.WriteString(fmt.Sprintf("Período             : %d meses\n", meses))
+		sb.WriteString(fmt.Sprintf("Total investido     : %s\n", formatBRL(totalInvestido)))
+		sb.WriteString(fmt.Sprintf("Total de rendimentos: %s\n", formatBRL(totalJurosBruto)))
+		sb.WriteString(fmt.Sprintf("Total IRPF          : %s\n", formatBRL(totalIRPF)))
+		sb.WriteString(fmt.Sprintf("Resultado líquido   : [green]%s[-]\n", formatBRL(resultadoLiquido)))
+		sb.WriteString(fmt.Sprintf("Valor final bruto   : [green]%s[-]\n\n", formatBRL(saldoFinalBruto)))
 
-		sb.WriteString("Mes | Saldo Inicial | Aporte | Juros Mes | IR Mes | Juros Liquido | Saldo Final\n")
-		sb.WriteString("----|---------------|--------|-----------|--------|---------------|------------\n")
+		sb.WriteString("Mês |  Saldo Inicial  |  Aporte Mensal  |    Rendimento   |    IRPF Mês     | Rendimento Líqu | Saldo Líquido  \n")
+		sb.WriteString("----|-----------------|-----------------|-----------------|-----------------|-----------------|----------------\n")
 
 		saldoAcumulado := inicial
 		for _, e := range evolucao {
@@ -278,7 +278,7 @@ func main() {
 			}
 
 			sb.WriteString(fmt.Sprintf(
-				"%3d | %13s | %6s | %9s | %7s | %13s | %12s\n",
+				"%3d | %15s | %15s | %15s | %15s | %15s | %15s\n",
 				e.Mes,
 				formatBRL(e.SaldoInicial),
 				formatBRL(e.Aporte),
@@ -289,7 +289,6 @@ func main() {
 			))
 			saldoAcumulado = saldoFinal
 		}
-
 		text := sb.String()
 		result.SetText(text)
 		result.ScrollToBeginning()
