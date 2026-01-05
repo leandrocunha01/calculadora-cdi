@@ -129,27 +129,87 @@ func formatBRL(v float64) string {
 	return "R$ " + sb.String() + "," + decPart
 }
 
-/* =========================
-   MAIN
-========================= */
+/*
+	=========================
+	  FORMATO MATRICIAL
 
+=========================
+*/
+func formatMatricial(evolucao []Mes, inicial float64, totalInvestido, totalJurosBruto, saldoFinalBruto float64, meses int, aporteNoInicio bool) string {
+	var sb strings.Builder
+	sb.WriteString("==============================================\n")
+	sb.WriteString("          RELATÓRIO DE INVESTIMENTO          \n")
+	sb.WriteString("==============================================\n")
+	sb.WriteString(fmt.Sprintf("Período         : %d meses\n", meses))
+	sb.WriteString(fmt.Sprintf("Total investido : R$ %.2f\n", totalInvestido))
+	sb.WriteString(fmt.Sprintf("Total rendimento: R$ %.2f\n", totalJurosBruto))
+	sb.WriteString(fmt.Sprintf("Saldo final     : R$ %.2f\n", saldoFinalBruto))
+	sb.WriteString("==============================================\n")
+	sb.WriteString("Mês | Saldo Inicial | Aporte Mensal | Rendimento | Saldo Final\n")
+	sb.WriteString("----|---------------|---------------|------------|------------\n")
+
+	saldoAcumulado := inicial
+	for _, m := range evolucao {
+		jurosLiquido := m.Rendimento
+		saldoFinal := saldoAcumulado
+		if aporteNoInicio {
+			saldoFinal += m.Aporte
+		}
+		saldoFinal += jurosLiquido
+		if !aporteNoInicio {
+			saldoFinal += m.Aporte
+		}
+		sb.WriteString(fmt.Sprintf(
+			"%3d | %13.2f | %13.2f | %10.2f | %10.2f\n",
+			m.Mes,
+			m.SaldoInicial,
+			m.Aporte,
+			m.Rendimento,
+			saldoFinal,
+		))
+		saldoAcumulado = saldoFinal
+	}
+	sb.WriteString("==============================================\n")
+	sb.WriteString("FIM DO RELATÓRIO\n")
+	sb.WriteString("==============================================\n")
+	return sb.String()
+}
+
+/*
+	=========================
+	  MAIN
+
+=========================
+*/
 func main() {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
 	var lastSimulation *Simulation
 	var layout *tview.Flex
+	var prazoField *tview.InputField
 
 	/* ---------- FORM ESQUERDO ---------- */
 	leftForm := tview.NewForm()
 	leftForm.SetBorder(true)
-	leftForm.SetTitle("+ Parâmetros F2 +")
-	leftForm.AddInputField("Data futura (DD/MM/AAAA)", "", 20, nil, nil)
-	leftForm.AddInputField("CDI anual (%)", "", 10, nil, nil)
-	leftForm.AddInputField("Percentual do CDI (%)", "", 10, nil, nil)
+	leftForm.SetTitle("+ Deixe Data futura/Prazo para cálculo automático F2 +")
 
-	prazoField := tview.NewInputField().
+	futureField := tview.NewInputField().
+		SetLabel("Data futura (DD/MM/AAAA)").
+		SetFieldWidth(12)
+	leftForm.AddFormItem(futureField)
+
+	cdiField := tview.NewInputField().
+		SetLabel("CDI ou SELIC anual (%)").
+		SetFieldWidth(6)
+	leftForm.AddFormItem(cdiField)
+
+	percField := tview.NewInputField().
+		SetLabel("Percentual do CDI/SELIC -> 100 (%)").
+		SetFieldWidth(6)
+	leftForm.AddFormItem(percField)
+
+	prazoField = tview.NewInputField().
 		SetLabel("Prazo (meses)").
-		SetText("").
 		SetFieldWidth(6)
 	leftForm.AddFormItem(prazoField)
 
@@ -157,19 +217,30 @@ func main() {
 		SetLabel("IRPF (%)").
 		SetText("0.0").
 		SetFieldWidth(6).
-		SetAcceptanceFunc(func(text string, lastChar rune) bool {
-			return false
-		})
+		SetAcceptanceFunc(func(text string, lastChar rune) bool { return false })
+	leftForm.AddFormItem(irpfField)
 
 	/* ---------- FORM DIREITO ---------- */
 	rightForm := tview.NewForm()
 	rightForm.SetBorder(true)
 	rightForm.SetTitle("+ Valores F3 +")
-	rightForm.AddInputField("Valor inicial (R$)", "", 12, nil, nil)
-	rightForm.AddInputField("Aporte mensal (R$)", "", 12, nil, nil)
+
+	inicialField := tview.NewInputField().
+		SetLabel("Valor inicial (R$)").
+		SetFieldWidth(12)
+	rightForm.AddFormItem(inicialField)
+
+	aporteField := tview.NewInputField().
+		SetLabel("Aporte mensal (R$)").
+		SetFieldWidth(12)
+	rightForm.AddFormItem(aporteField)
 
 	aporteNoInicio := true
-	rightForm.AddCheckbox("Aporte no início do mês", true, func(v bool) { aporteNoInicio = v })
+	aporteInicioCheckbox := tview.NewCheckbox().
+		SetLabel("Aporte no início do mês").
+		SetChecked(true).
+		SetChangedFunc(func(v bool) { aporteNoInicio = v })
+	rightForm.AddFormItem(aporteInicioCheckbox)
 
 	/* ---------- RESULTADO ---------- */
 	result := tview.NewTextView()
@@ -177,7 +248,7 @@ func main() {
 	result.SetScrollable(true)
 	result.SetWrap(false)
 	result.SetBorder(true)
-	result.SetTitle("+ Resultado F5 calcular | F9 carregar | F10 salvar | Esc sair +")
+	result.SetTitle("+ Resultado F5 calcular | F7 matricial | F9 carregar | F10 salvar | Esc sair +")
 
 	scrollRow, scrollCol := 0, 0
 	totalLines, maxCols := 0, 0
@@ -187,21 +258,20 @@ func main() {
 		layoutDate := "02/01/2006"
 		now := time.Now()
 
-		cdi := parseFloat(leftForm.GetFormItem(1).(*tview.InputField).GetText()) / 100
-		perc := parseFloat(leftForm.GetFormItem(2).(*tview.InputField).GetText()) / 100
-		inicial := parseFloat(rightForm.GetFormItem(0).(*tview.InputField).GetText())
-		aporte := parseFloat(rightForm.GetFormItem(1).(*tview.InputField).GetText())
+		cdi := parseFloat(cdiField.GetText()) / 100
+		perc := parseFloat(percField.GetText()) / 100
+		inicial := parseFloat(inicialField.GetText())
+		aporte := parseFloat(aporteField.GetText())
 
 		taxaAnual := cdi * perc
 
 		// Lógica Data <-> Prazo
 		var meses int
 		prazo := parseFloat(prazoField.GetText())
-		futureText := leftForm.GetFormItem(0).(*tview.InputField).GetText()
+		futureText := futureField.GetText()
 		future, err := time.Parse(layoutDate, futureText)
 
 		if err == nil && futureText != "" {
-			// Data preenchida -> calcula prazo
 			meses = (future.Year()-now.Year())*12 + int(future.Month()-now.Month())
 			if future.Day() < now.Day() {
 				meses--
@@ -211,10 +281,9 @@ func main() {
 			}
 			prazoField.SetText(fmt.Sprintf("%d", meses))
 		} else if prazo > 0 {
-			// Prazo preenchido -> calcula data
 			meses = int(prazo)
 			futureCalc := now.AddDate(0, meses, 0)
-			leftForm.GetFormItem(0).(*tview.InputField).SetText(futureCalc.Format(layoutDate))
+			futureField.SetText(futureCalc.Format(layoutDate))
 		} else {
 			result.SetText("[red]Preencha a data ou o prazo!")
 			return
@@ -236,15 +305,15 @@ func main() {
 			TotalInvestido:  totalInvestido,
 			TotalJuros:      totalJurosBruto,
 			SaldoFinal:      saldoFinalBruto,
-			CDIInput:        leftForm.GetFormItem(1).(*tview.InputField).GetText(),
-			PercentualInput: leftForm.GetFormItem(2).(*tview.InputField).GetText(),
-			FutureDateInput: leftForm.GetFormItem(0).(*tview.InputField).GetText(),
+			CDIInput:        cdiField.GetText(),
+			PercentualInput: percField.GetText(),
+			FutureDateInput: futureField.GetText(),
 			PrazoInput:      prazoField.GetText(),
-			InicialInput:    rightForm.GetFormItem(0).(*tview.InputField).GetText(),
-			AporteInput:     rightForm.GetFormItem(1).(*tview.InputField).GetText(),
+			InicialInput:    inicialField.GetText(),
+			AporteInput:     aporteField.GetText(),
 		}
 
-		// Monta resultado
+		// Monta resultado colorido normal
 		var sb strings.Builder
 		totalIRPF, totalJurosLiquido := 0.0, 0.0
 		for _, e := range evolucao {
@@ -370,13 +439,13 @@ func main() {
 					return
 				}
 				lastSimulation = &sim
-				leftForm.GetFormItem(0).(*tview.InputField).SetText(sim.FutureDateInput)
-				leftForm.GetFormItem(1).(*tview.InputField).SetText(sim.CDIInput)
-				leftForm.GetFormItem(2).(*tview.InputField).SetText(sim.PercentualInput)
+				futureField.SetText(sim.FutureDateInput)
+				cdiField.SetText(sim.CDIInput)
+				percField.SetText(sim.PercentualInput)
 				prazoField.SetText(sim.PrazoInput)
-				rightForm.GetFormItem(0).(*tview.InputField).SetText(sim.InicialInput)
-				rightForm.GetFormItem(1).(*tview.InputField).SetText(sim.AporteInput)
-				rightForm.GetFormItem(2).(*tview.Checkbox).SetChecked(sim.AporteNoInicio)
+				inicialField.SetText(sim.InicialInput)
+				aporteField.SetText(sim.AporteInput)
+				aporteInicioCheckbox.SetChecked(sim.AporteNoInicio)
 				aporteNoInicio = sim.AporteNoInicio
 				pages.RemovePage("load")
 				app.SetFocus(layout)
@@ -417,6 +486,31 @@ func main() {
 		case tcell.KeyF5:
 			calculate()
 			return nil
+		case tcell.KeyF7:
+			if lastSimulation != nil {
+				text := formatMatricial(
+					lastSimulation.Evolucao,
+					lastSimulation.Inicial,
+					lastSimulation.TotalInvestido,
+					lastSimulation.TotalJuros,
+					lastSimulation.SaldoFinal,
+					lastSimulation.Meses,
+					lastSimulation.AporteNoInicio,
+				)
+				result.SetText(text)
+				result.ScrollToBeginning()
+				scrollRow, scrollCol = 0, 0
+				totalLines = strings.Count(text, "\n")
+				maxCols = 0
+				for _, line := range strings.Split(text, "\n") {
+					if len(line) > maxCols {
+						maxCols = len(line)
+					}
+				}
+			} else {
+				result.SetText("[red]Nenhuma simulação calculada para imprimir!")
+			}
+			return nil
 		case tcell.KeyF9:
 			loadSimulation()
 			return nil
@@ -426,7 +520,6 @@ func main() {
 		case tcell.KeyEsc:
 			app.Stop()
 			return nil
-
 		case tcell.KeyUp:
 			if scrollRow > 0 {
 				scrollRow--
