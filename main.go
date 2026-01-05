@@ -213,13 +213,6 @@ func main() {
 		SetFieldWidth(6)
 	leftForm.AddFormItem(prazoField)
 
-	irpfField := tview.NewInputField().
-		SetLabel("IRPF (%)").
-		SetText("0.0").
-		SetFieldWidth(6).
-		SetAcceptanceFunc(func(text string, lastChar rune) bool { return false })
-	leftForm.AddFormItem(irpfField)
-
 	/* ---------- FORM DIREITO ---------- */
 	rightForm := tview.NewForm()
 	rightForm.SetBorder(true)
@@ -241,6 +234,13 @@ func main() {
 		SetChecked(true).
 		SetChangedFunc(func(v bool) { aporteNoInicio = v })
 	rightForm.AddFormItem(aporteInicioCheckbox)
+
+	irpfField := tview.NewInputField().
+		SetLabel("IRPF (%)").
+		SetText("0.0").
+		SetFieldWidth(6).
+		SetAcceptanceFunc(func(text string, lastChar rune) bool { return false })
+	rightForm.AddFormItem(irpfField)
 
 	/* ---------- RESULTADO ---------- */
 	result := tview.NewTextView()
