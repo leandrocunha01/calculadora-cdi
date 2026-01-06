@@ -6,6 +6,6 @@ Está tudo em um arquivo só pq fiquei com preguiça de adicionar mais módulus;
 
 Então não reclama pq já fiz o trabalho mais difícil... :-)
 
-OBS.: Não testei no Mac OS muito menos testarei no Windows, fique a vontade para faze-lo, mesmo que eu tenha ância só de pensar nessa possibilidade. :|
+OBS.: Não testei no Mac OS muito menos testarei no Windows, fique a vontade para faze-lo. :|
 
 ![Única tela](print.png "tela")
