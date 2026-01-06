@@ -46,7 +46,7 @@ func main() {
 	/* ---------- FORM DIREITO ---------- */
 	rightForm := tview.NewForm()
 	rightForm.SetBorder(true)
-	rightForm.SetTitle("+ [blue]F3[-] Valores +")
+        rightForm.SetTitle("+ [blue]F3[-] [red]IRPF calculado pela tabela regressiva[-] +")
 
 	inicialField := tview.NewInputField().
 		SetLabel("Valor inicial (R$)").
