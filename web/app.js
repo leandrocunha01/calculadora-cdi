@@ -1,9 +1,8 @@
 let lastResultData = null;
 const inputFuture = document.getElementById('future');
 const inputPrazo = document.getElementById('prazo');
-let lastEdited = 'prazo'; // Track para saber qual campo o usuário alterou por último
+let lastEdited = 'prazo';
 
-// Theme Management
 const themeToggle = document.getElementById('theme-toggle');
 if (themeToggle) {
   themeToggle.addEventListener('click', () => {
@@ -12,7 +11,6 @@ if (themeToggle) {
   });
 }
 
-// Date Logic
 function parseDate(str) {
   const [d, m, y] = str.split('/').map(Number);
   return new Date(y, m - 1, d);
@@ -22,7 +20,6 @@ function formatDate(date) {
   return date.toLocaleDateString('pt-BR');
 }
 
-// Sincronização Dinâmica
 if (inputFuture) {
   inputFuture.addEventListener('input', () => { lastEdited = 'data'; });
   inputFuture.addEventListener('blur', () => {
@@ -59,7 +56,6 @@ if (formEl) {
 
     if (errorDiv) errorDiv.textContent = '';
 
-    // Define o payload com base no último campo editado pelo usuário
     const payload = {
       cdiAnual: parseFloat(document.getElementById('cdi').value),
       percentualCdi: parseFloat(document.getElementById('percentual').value),
@@ -111,6 +107,7 @@ if (formEl) {
           <td>${brl(m.aporte)}</td>
           <td>${brl(m.rendimento)}</td>
           <td>${brl(ir)}</td>
+          <td>${brl(liq)}</td>
           <td style="font-weight:600">${brl(saldoAtivo)}</td>
         </tr>`;
       });
