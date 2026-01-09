@@ -1,11 +1,20 @@
-# Calculadora de investimentos CDI
-## O uso é pessoal, mas se te for útil fica a vontade para usar
+# Calculadora de investimentos CDI (versão Web)
+## O uso é pessoal, mas se te for útil fica à vontade para usar
 
+Agora a aplicação roda como um servidor HTTP e a interface é HTML.
 
-Está tudo em um arquivo só pq fiquei com preguiça de adicionar mais módulus;
+Como executar:
 
-Então não reclama pq já fiz o trabalho mais difícil... :-)
+1. Instale o Go (1.20+ recomendado).
+2. No diretório do projeto, rode:
+   
+   ```bash
+   go run .
+   ```
+3. Abra no navegador: http://localhost:8080
 
-OBS.: Não testei no Mac OS muito menos testarei no Windows, fique a vontade para faze-lo, mesmo que eu tenha ância só de pensar nessa possibilidade. :|
+Recursos:
+- Endpoint POST `/simulate` recebe os parâmetros em JSON e retorna o cálculo completo.
+- Interface web em `web/index.html` com formulário e tabela de evolução.
 
-![Única tela](print.png "tela")
+Nota: a versão antiga baseada em TUI (tcell/tview) foi substituída pela interface web.

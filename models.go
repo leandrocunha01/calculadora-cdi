@@ -23,10 +23,10 @@ type Simulation struct {
 }
 
 type Mes struct {
-	Mes             int
-	SaldoInicial    float64
-	Aporte          float64
-	Rendimento      float64
-	JurosAcumulados float64
-	SaldoFinal      float64
+    Mes             int     `json:"mes"`
+    SaldoInicial    float64 `json:"saldoInicial"`
+    Aporte          float64 `json:"aporte"`
+    Rendimento      float64 `json:"rendimento"`
+    JurosAcumulados float64 `json:"jurosAcumulados"`
+    SaldoFinal      float64 `json:"saldoFinal"`
 }
