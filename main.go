@@ -73,6 +73,25 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
     _ = json.NewEncoder(w).Encode(v)
 }
 
+func firstDayOfMonth(t time.Time) time.Time {
+    return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+}
+
+func lastDayOfMonth(t time.Time) time.Time {
+    // day 0 of next month is the last day of current month
+    return time.Date(t.Year(), t.Month()+1, 0, 0, 0, 0, 0, t.Location())
+}
+
+func addMonths(t time.Time, months int) time.Time {
+    // Keep at first day to avoid DST issues, then restore chosen day rule elsewhere
+    base := firstDayOfMonth(t)
+    return time.Date(base.Year(), base.Month()+time.Month(months), 1, 0, 0, 0, 0, base.Location())
+}
+
+func formatDateBR(t time.Time) string {
+    return t.Format("02/01/2006")
+}
+
 func simulateHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodPost {
         writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"erro": "Método não permitido"})
@@ -111,6 +130,21 @@ func simulateHandler(w http.ResponseWriter, r *http.Request) {
         totalJurosLiquido += e.Rendimento - irMes
     }
     resultadoLiquido := totalInvestido + totalJurosLiquido
+
+    // Preencher as datas de aporte por mês
+    // Referência: mês corrente como mês 1
+    now := time.Now()
+    for i := range evolucao {
+        // i = 0 para mês 1 -> adicionar i meses
+        refMonth := addMonths(now, i)
+        var d time.Time
+        if req.AporteNoInicio {
+            d = firstDayOfMonth(refMonth)
+        } else {
+            d = lastDayOfMonth(refMonth)
+        }
+        evolucao[i].DataAporte = formatDateBR(d)
+    }
 
     resp := simulateResponse{
         Meses:            meses,

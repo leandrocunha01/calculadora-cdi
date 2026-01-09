@@ -29,4 +29,5 @@ type Mes struct {
     Rendimento      float64 `json:"rendimento"`
     JurosAcumulados float64 `json:"jurosAcumulados"`
     SaldoFinal      float64 `json:"saldoFinal"`
+    DataAporte      string  `json:"dataAporte"`
 }

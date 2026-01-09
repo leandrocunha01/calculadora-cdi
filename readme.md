@@ -16,5 +16,13 @@ Como executar:
 Recursos:
 - Endpoint POST `/simulate` recebe os parâmetros em JSON e retorna o cálculo completo.
 - Interface web em `web/index.html` com formulário e tabela de evolução.
+  - A tabela agora inclui a coluna "Data do Aporte".
+    - Se "Aporte no início do mês" estiver marcado, a data mostrada é o primeiro dia do mês.
+    - Se não estiver marcado, a data mostrada é o último dia do mês.
+    - O mês 1 corresponde ao mês corrente.
+
+Estrutura Web:
+- CSS separado em `web/app.css`.
+- JavaScript separado em `web/app.js` (inclui lógica de formulário, renderização, alternância de tema e exportação PDF/CSV).
 
 Nota: a versão antiga baseada em TUI (tcell/tview) foi substituída pela interface web.
