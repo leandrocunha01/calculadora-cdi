@@ -3,9 +3,6 @@ const inputFuture = document.getElementById('future');
 const inputPrazo = document.getElementById('prazo');
 let lastEdited = 'prazo';
 
-/* =========================
-   THEME TOGGLE
-========================= */
 const themeToggle = document.getElementById('theme-toggle');
 if (themeToggle) {
   themeToggle.addEventListener('click', () => {
@@ -14,9 +11,6 @@ if (themeToggle) {
   });
 }
 
-/* =========================
-   DATE HELPERS
-========================= */
 function parseDate(str) {
   const [d, m, y] = str.split('/').map(Number);
   return new Date(y, m - 1, d);
@@ -32,9 +26,6 @@ function addMonths(date, months) {
   return d;
 }
 
-/* =========================
-   INPUT SYNC (DATA x PRAZO)
-========================= */
 if (inputFuture) {
   inputFuture.addEventListener('input', () => { lastEdited = 'data'; });
   inputFuture.addEventListener('blur', () => {
@@ -61,9 +52,6 @@ if (inputPrazo) {
   });
 }
 
-/* =========================
-   FORMATTERS
-========================= */
 function brl(n) {
   return n.toLocaleString('pt-BR', {
     style: 'currency',
@@ -71,9 +59,6 @@ function brl(n) {
   });
 }
 
-/* =========================
-   FORM SUBMIT
-========================= */
 const formEl = document.getElementById('form');
 if (formEl) {
   formEl.addEventListener('submit', async (e) => {
