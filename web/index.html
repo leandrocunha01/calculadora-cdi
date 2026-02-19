@@ -52,32 +52,9 @@
     </div>
   </form>
 
-  <div class="result" id="result" hidden>
-    <div class="summary" id="summary"></div>
+  <div id="comparison" class="comparison" hidden></div>
 
-    <div class="table-container">
-      <table id="tabela">
-        <thead>
-        <tr>
-          <th class="text-center">Mês</th>
-          <th>Data</th>
-          <th>Saldo Inicial</th>
-          <th>Aporte</th>
-          <th>Rend. Bruto</th>
-          <th>IRPF</th>
-          <th>Rend. Líquido</th>
-          <th>Saldo Líquido</th>
-        </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="btn-group">
-      <button onclick="exportPDF()" class="btn-secondary">Exportar PDF</button>
-      <button onclick="exportCSV()" class="btn-secondary">Exportar CSV</button>
-    </div>
-  </div>
+  <div id="results-container"></div>
 </div>
 
 <script defer src="app.js"></script>
