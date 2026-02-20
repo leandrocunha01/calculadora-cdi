@@ -115,6 +115,7 @@ if (formEl) {
 
     } catch (err) {
       if (errorDiv) errorDiv.textContent = err.message;
+      throw err;
     }
   });
 }

@@ -47,7 +47,7 @@
       </fieldset>
     </div>
     <div style="text-align: center;">
-      <button type="submit">Calcular Rendimentos</button>
+      <button type="submit">Calcular</button>
       <div id="error"></div>
     </div>
   </form>
@@ -57,6 +57,16 @@
   <div id="results-container"></div>
 </div>
 
-<script defer src="app.js"></script>
+<script defer>
+  const script = document.createElement('script');
+  script.defer = true;
+  script.src = "app.js?rand=" + Math.random().toString(36).substring(2);
+  document.head.appendChild(script);
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'app.css?rand=' + Date.now();
+  document.head.appendChild(link);
+</script>
 </body>
 </html>
