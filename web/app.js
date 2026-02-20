@@ -132,7 +132,7 @@ function addResultCard(resultId, data, payload) {
   resultTitle.innerHTML = `
     <div class="result-title">
       <span>Simulação #${resultCounter}</span>
-      <span class="result-params">${payload.percentualCdi}% CDI | ${payload.prazoMeses || '?'} meses | Inicial: ${brl(payload.valorInicial)}</span>
+      <span class="result-params">${payload.percentualCdi}% CDI | ${payload.prazoMeses || '?'} meses | Inicial: ${brl(payload.valorInicial)} | Recorência: ${brl(payload.aporteMensal)}</span>
     </div>
     <button class="btn-remove" onclick="removeResult('${resultId}')">✕</button>
   `;
