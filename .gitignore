@@ -1,2 +1,5 @@
 *.json
 *.csv
+dist
+node_modules
+.env

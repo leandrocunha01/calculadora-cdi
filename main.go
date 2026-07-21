@@ -232,16 +232,39 @@ func main() {
 	// API
 	mux.HandleFunc("/simulate", simulateHandler)
 
-	// Static: serve ./web (index.html)
-	fs := http.FileServer(http.Dir("dist"))
+	// Static: serve ./dist for production or ./web for development
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// default to index.html
 		path := r.URL.Path
-		if path == "/" {
-			http.ServeFile(w, r, filepath.Join("web", "index.html"))
+
+		// Try dist first (production build)
+		distPath := filepath.Join("dist", path)
+		if info, err := os.Stat(distPath); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, distPath)
 			return
 		}
-		fs.ServeHTTP(w, r)
+
+		// Try web directory (development)
+		webPath := filepath.Join("web", path)
+		if info, err := os.Stat(webPath); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, webPath)
+			return
+		}
+
+		// Try assets in dist
+		if strings.HasPrefix(path, "/assets/") {
+			assetsPath := filepath.Join("dist", path)
+			if info, err := os.Stat(assetsPath); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, assetsPath)
+				return
+			}
+		}
+
+		// Default to index.html for SPA routing
+		if _, err := os.Stat(filepath.Join("dist", "index.html")); err == nil {
+			http.ServeFile(w, r, filepath.Join("dist", "index.html"))
+		} else {
+			http.ServeFile(w, r, filepath.Join("web", "index.html"))
+		}
 	}))
 
 	addr := ":8080"
