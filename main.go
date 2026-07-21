@@ -233,7 +233,7 @@ func main() {
 	mux.HandleFunc("/simulate", simulateHandler)
 
 	// Static: serve ./web (index.html)
-	fs := http.FileServer(http.Dir("web"))
+	fs := http.FileServer(http.Dir("dist"))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// default to index.html
 		path := r.URL.Path
