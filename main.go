@@ -226,11 +226,49 @@ func simulateHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+type saveRequest struct {
+	Request  simulateRequest  `json:"request"`
+	Response simulateResponse `json:"response"`
+}
+
+// saveHandler persists a simulation to MySQL. Unlike simulateHandler, this is
+// only called when the user explicitly clicks "Salvar" on a result.
+func saveHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"erro": "Método não permitido"})
+		return
+	}
+	if db == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"erro": "Banco de dados indisponível"})
+		return
+	}
+
+	var body saveRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"erro": "JSON inválido"})
+		return
+	}
+
+	id, err := saveSimulationMySQL(body.Request, body.Response)
+	if err != nil {
+		log.Printf("erro ao salvar simulação no mysql: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"erro": "Falha ao salvar simulação"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"id": id, "salvo": true})
+}
+
 func main() {
+	if err := initMySQL(); err != nil {
+		logMySQLUnavailable(err)
+	}
+
 	mux := http.NewServeMux()
 
 	// API
 	mux.HandleFunc("/simulate", simulateHandler)
+	mux.HandleFunc("/save", saveHandler)
 
 	// Static: serve ./web/dist for production (vite build output) or ./web for development
 	distDir := filepath.Join("web", "dist")

@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 
 function ResultCard({ result, onRemove }) {
   const { id, data, payload } = result
+  const [saveState, setSaveState] = useState('idle')
 
   const brl = (n) => {
     return n.toLocaleString('pt-BR', {
@@ -105,6 +107,29 @@ function ResultCard({ result, onRemove }) {
     link.click()
   }
 
+  const handleSave = async () => {
+    setSaveState('saving')
+    try {
+      const res = await fetch('/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request: payload, response: data })
+      })
+      if (!res.ok) throw new Error()
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+      setTimeout(() => setSaveState('idle'), 2500)
+    }
+  }
+
+  const saveLabel = {
+    idle: 'Salvar',
+    saving: 'Salvando...',
+    saved: 'Salvo ✓',
+    error: 'Erro ao salvar'
+  }[saveState]
+
   const simNumber = id.replace('result-', '')
 
   return (
@@ -121,21 +146,21 @@ function ResultCard({ result, onRemove }) {
 
       <div className="summary">
         <div className="metric-card">
-          <div style={{ color: 'var(--muted)' }}>Investido</div>
+          <div style={{ color: 'var(--muted-foreground)' }}>Investido</div>
           <div className="metric-value">{brl(data.totalInvestido)}</div>
         </div>
         <div className="metric-card">
-          <div style={{ color: 'var(--muted)' }}>Rend. Bruto</div>
+          <div style={{ color: 'var(--muted-foreground)' }}>Rend. Bruto</div>
           <div className="metric-value">{brl(data.totalJurosBruto)}</div>
         </div>
         <div className="metric-card">
-          <div style={{ color: 'var(--muted)' }}>Total IRPF</div>
-          <div className="metric-value" style={{ color: 'var(--danger)' }}>
+          <div style={{ color: 'var(--muted-foreground)' }}>Total IRPF</div>
+          <div className="metric-value" style={{ color: 'var(--destructive)' }}>
             {brl(data.totalIrpf)}
           </div>
         </div>
-        <div className="metric-card" style={{ borderColor: 'var(--accent)' }}>
-          <div style={{ color: 'var(--accent)' }}>Líquido Final</div>
+        <div className="metric-card" style={{ borderColor: 'var(--brand-accent)' }}>
+          <div style={{ color: 'var(--brand-accent)' }}>Líquido Final</div>
           <div className="metric-value">{brl(data.resultadoLiquido)}</div>
         </div>
       </div>
@@ -172,6 +197,14 @@ function ResultCard({ result, onRemove }) {
       </div>
 
       <div className="btn-group">
+        <button
+          onClick={handleSave}
+          disabled={saveState === 'saving' || saveState === 'saved'}
+          className="btn-secondary"
+          style={saveState === 'saved' ? { borderColor: 'var(--brand-accent)', color: 'var(--brand-accent)' } : saveState === 'error' ? { borderColor: 'var(--destructive)', color: 'var(--destructive)' } : undefined}
+        >
+          {saveLabel}
+        </button>
         <button onClick={exportPDF} className="btn-secondary">Exportar PDF</button>
         <button onClick={exportCSV} className="btn-secondary">Exportar CSV</button>
       </div>
