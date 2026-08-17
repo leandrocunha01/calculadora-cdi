@@ -1,4 +1,6 @@
 *.json
+!package.json
+!package-lock.json
 *.csv
 dist
 node_modules
